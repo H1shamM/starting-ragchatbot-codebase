@@ -5,6 +5,7 @@ These tests expose the root cause of 'query failed' errors for content questions
   - config.MAX_RESULTS is 0, causing ChromaDB to raise ValueError on every search
   - The error propagates as a tool result that Claude receives instead of content
 """
+
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -16,10 +17,10 @@ from vector_store import VectorStore, SearchResults
 from search_tools import CourseSearchTool, ToolManager
 from models import Course, Lesson, CourseChunk
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_ephemeral_vector_store(max_results=5):
     """Return a VectorStore backed by an ephemeral (in-memory) ChromaDB."""
@@ -30,6 +31,7 @@ def _make_ephemeral_vector_store(max_results=5):
     store.client = client
 
     import chromadb.utils.embedding_functions as ef
+
     store.embedding_function = ef.SentenceTransformerEmbeddingFunction(
         model_name="all-MiniLM-L6-v2"
     )
@@ -44,13 +46,19 @@ def _seed_store(store):
         title="Test Course",
         course_link="http://example.com/course",
         instructor="Tester",
-        lessons=[Lesson(lesson_number=1, title="Introduction", lesson_link="http://example.com/lesson/1")]
+        lessons=[
+            Lesson(
+                lesson_number=1,
+                title="Introduction",
+                lesson_link="http://example.com/lesson/1",
+            )
+        ],
     )
     chunk = CourseChunk(
         content="Lesson 1 content: This is an introduction to testing.",
         course_title="Test Course",
         lesson_number=1,
-        chunk_index=0
+        chunk_index=0,
     )
     store.add_course_metadata(course)
     store.add_course_content([chunk])
@@ -60,6 +68,7 @@ def _seed_store(store):
 # ---------------------------------------------------------------------------
 # 1. Configuration bug
 # ---------------------------------------------------------------------------
+
 
 class TestConfigBug:
     def test_max_results_is_positive(self):
@@ -80,6 +89,7 @@ class TestConfigBug:
 # 2. VectorStore – ChromaDB rejects n_results=0
 # ---------------------------------------------------------------------------
 
+
 class TestVectorStoreSearchWithZeroResults:
     def test_chromadb_raises_on_n_results_zero(self):
         """
@@ -90,7 +100,9 @@ class TestVectorStoreSearchWithZeroResults:
         col = client.create_collection("test_zero")
         col.add(documents=["hello"], ids=["doc1"])
 
-        with pytest.raises(Exception, match="(?i)(n_results|requested results|zero|negative)"):
+        with pytest.raises(
+            Exception, match="(?i)(n_results|requested results|zero|negative)"
+        ):
             col.query(query_texts=["hello"], n_results=0)
 
     def test_vector_store_search_returns_error_when_max_results_zero(self):
@@ -103,9 +115,9 @@ class TestVectorStoreSearchWithZeroResults:
 
         results = store.search(query="introduction")
 
-        assert results.error is not None, (
-            "Expected an error in SearchResults when max_results=0, got none."
-        )
+        assert (
+            results.error is not None
+        ), "Expected an error in SearchResults when max_results=0, got none."
         assert results.is_empty()
 
     def test_vector_store_search_succeeds_when_max_results_positive(self):
@@ -126,6 +138,7 @@ class TestVectorStoreSearchWithZeroResults:
 # 3. CourseSearchTool – search error string propagates
 # ---------------------------------------------------------------------------
 
+
 class TestCourseSearchToolWithRealStore:
     def test_execute_returns_error_string_when_max_results_zero(self):
         """
@@ -138,9 +151,9 @@ class TestCourseSearchToolWithRealStore:
         tool = CourseSearchTool(store)
         result = tool.execute(query="introduction")
 
-        assert "error" in result.lower() or "n_results" in result.lower(), (
-            f"Expected an error message, got: {result!r}"
-        )
+        assert (
+            "error" in result.lower() or "n_results" in result.lower()
+        ), f"Expected an error message, got: {result!r}"
 
     def test_execute_returns_content_when_max_results_positive(self):
         """
@@ -152,14 +165,15 @@ class TestCourseSearchToolWithRealStore:
         tool = CourseSearchTool(store)
         result = tool.execute(query="introduction to testing")
 
-        assert "Test Course" in result or "introduction" in result.lower(), (
-            f"Expected course content in result, got: {result!r}"
-        )
+        assert (
+            "Test Course" in result or "introduction" in result.lower()
+        ), f"Expected course content in result, got: {result!r}"
 
 
 # ---------------------------------------------------------------------------
 # 4. RAGSystem pipeline – end-to-end with mocked AI
 # ---------------------------------------------------------------------------
+
 
 class TestRAGSystemPipeline:
     """
@@ -200,8 +214,10 @@ class TestRAGSystemPipeline:
         import tempfile
         from rag_system import RAGSystem
 
-        with patch("ai_generator.anthropic.Anthropic") as mock_anthropic_class, \
-             tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_chroma:
+        with (
+            patch("ai_generator.anthropic.Anthropic") as mock_anthropic_class,
+            tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp_chroma,
+        ):
 
             mock_client = MagicMock()
             mock_anthropic_class.return_value = mock_client
@@ -225,9 +241,7 @@ class TestRAGSystemPipeline:
             final_response.stop_reason = "end_turn"
             final_response.content = [final_block]
 
-            mock_client.messages.create.side_effect = [
-                initial_response, final_response
-            ]
+            mock_client.messages.create.side_effect = [initial_response, final_response]
 
             # Build RAGSystem with working config and a real temp path for ChromaDB
             cfg = MagicMock()

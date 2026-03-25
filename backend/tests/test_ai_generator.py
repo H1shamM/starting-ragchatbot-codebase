@@ -2,18 +2,20 @@
 Tests for AIGenerator – verifies that Claude is called correctly and that the
 sequential tool-calling loop (up to MAX_TOOL_ROUNDS rounds) works as expected.
 """
+
 import pytest
 from unittest.mock import MagicMock, patch
 
 from ai_generator import AIGenerator
 
-
 # ---------------------------------------------------------------------------
 # Helpers – lightweight stand-ins for Anthropic SDK response objects
 # ---------------------------------------------------------------------------
 
+
 class _Block:
     """Minimal content block."""
+
     def __init__(self, type, *, text=None, name=None, id=None, input=None):
         self.type = type
         self.text = text
@@ -33,12 +35,15 @@ def _text_response(text):
 
 
 def _tool_response(name, tool_id, inputs):
-    return _Response("tool_use", [_Block("tool_use", name=name, id=tool_id, input=inputs)])
+    return _Response(
+        "tool_use", [_Block("tool_use", name=name, id=tool_id, input=inputs)]
+    )
 
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_client():
@@ -57,6 +62,7 @@ def gen(mock_client):
 # ---------------------------------------------------------------------------
 # Direct (no tool) responses
 # ---------------------------------------------------------------------------
+
 
 class TestDirectResponse:
     def test_returns_text_on_end_turn(self, gen, mock_client):
@@ -87,7 +93,9 @@ class TestDirectResponse:
     def test_conversation_history_appended_to_system(self, gen, mock_client):
         mock_client.messages.create.return_value = _text_response("ok")
 
-        gen.generate_response(query="hello", conversation_history="User: hi\nAssistant: hello")
+        gen.generate_response(
+            query="hello", conversation_history="User: hi\nAssistant: hello"
+        )
 
         kwargs = mock_client.messages.create.call_args.kwargs
         assert "Previous conversation" in kwargs["system"]
@@ -97,6 +105,7 @@ class TestDirectResponse:
 # ---------------------------------------------------------------------------
 # Single tool-calling round (existing behavior preserved)
 # ---------------------------------------------------------------------------
+
 
 class TestToolCallingLoop:
     def test_tool_use_triggers_tool_manager(self, gen, mock_client):
@@ -143,7 +152,9 @@ class TestToolCallingLoop:
             _text_response("Done."),
         ]
         tool_manager = MagicMock()
-        tool_manager.execute_tool.return_value = "Embeddings are vector representations."
+        tool_manager.execute_tool.return_value = (
+            "Embeddings are vector representations."
+        )
 
         gen.generate_response(
             query="Explain embeddings",
@@ -155,14 +166,17 @@ class TestToolCallingLoop:
         messages = second_call_kwargs["messages"]
 
         tool_result_msgs = [
-            m for m in messages
+            m
+            for m in messages
             if m["role"] == "user" and isinstance(m["content"], list)
         ]
         assert len(tool_result_msgs) == 1
         tool_result_content = tool_result_msgs[0]["content"][0]
         assert tool_result_content["type"] == "tool_result"
         assert tool_result_content["tool_use_id"] == "abc123"
-        assert tool_result_content["content"] == "Embeddings are vector representations."
+        assert (
+            tool_result_content["content"] == "Embeddings are vector representations."
+        )
 
     def test_round_2_call_includes_tools(self, gen, mock_client):
         """The follow-up call after a tool round still has tools available."""
@@ -190,15 +204,15 @@ class TestToolCallingLoop:
         In this test the mock's .text is None, so the function returns None instead —
         either way the caller gets a broken response (None or an exception).
         """
-        tool_block = _Block("tool_use", name="search_course_content", id="t1", input={"query": "x"})
-        mock_client.messages.create.return_value = _Response(
-            "tool_use", [tool_block]
+        tool_block = _Block(
+            "tool_use", name="search_course_content", id="t1", input={"query": "x"}
         )
+        mock_client.messages.create.return_value = _Response("tool_use", [tool_block])
 
         result = gen.generate_response(
             query="test",
             tools=[{"name": "search_course_content"}],
-            tool_manager=None,   # intentionally None
+            tool_manager=None,  # intentionally None
         )
 
         # Mock returns None (real SDK raises AttributeError); either way the response is broken.
@@ -224,6 +238,7 @@ class TestToolCallingLoop:
 # ---------------------------------------------------------------------------
 # Search tool error propagation
 # ---------------------------------------------------------------------------
+
 
 class TestSearchErrorPropagation:
     def test_search_error_string_reaches_ai(self, gen, mock_client):
@@ -252,7 +267,8 @@ class TestSearchErrorPropagation:
         second_call_kwargs = mock_client.messages.create.call_args_list[1].kwargs
         messages = second_call_kwargs["messages"]
         tool_result_msgs = [
-            m for m in messages
+            m
+            for m in messages
             if m["role"] == "user" and isinstance(m["content"], list)
         ]
         assert "Search error" in tool_result_msgs[0]["content"][0]["content"]
@@ -261,6 +277,7 @@ class TestSearchErrorPropagation:
 # ---------------------------------------------------------------------------
 # Sequential tool calling (multi-round)
 # ---------------------------------------------------------------------------
+
 
 class TestSequentialToolCalling:
     def test_max_tool_rounds_constant_is_two(self, gen):

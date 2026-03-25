@@ -1,30 +1,30 @@
 """
 Tests for CourseSearchTool.execute() in search_tools.py
 """
+
 import pytest
 from unittest.mock import MagicMock
 
 from search_tools import CourseSearchTool, ToolManager
 from vector_store import SearchResults
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_results(documents, metadata, error=None):
     if error:
         return SearchResults.empty(error)
     return SearchResults(
-        documents=documents,
-        metadata=metadata,
-        distances=[0.5] * len(documents)
+        documents=documents, metadata=metadata, distances=[0.5] * len(documents)
     )
 
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_store():
@@ -42,12 +42,13 @@ def tool(mock_store):
 # execute() – success path
 # ---------------------------------------------------------------------------
 
+
 class TestExecuteSuccess:
     def test_returns_formatted_content(self, tool, mock_store):
         """Results are formatted with course title, lesson number, and text."""
         mock_store.search.return_value = make_results(
             documents=["Python is great."],
-            metadata=[{"course_title": "Intro to Python", "lesson_number": 1}]
+            metadata=[{"course_title": "Intro to Python", "lesson_number": 1}],
         )
 
         result = tool.execute(query="What is Python?")
@@ -60,7 +61,7 @@ class TestExecuteSuccess:
         """last_sources is populated with text and url after a successful search."""
         mock_store.search.return_value = make_results(
             documents=["Content."],
-            metadata=[{"course_title": "MCP Course", "lesson_number": 3}]
+            metadata=[{"course_title": "MCP Course", "lesson_number": 3}],
         )
         mock_store.get_lesson_link.return_value = "http://example.com/lesson/3"
 
@@ -74,7 +75,7 @@ class TestExecuteSuccess:
         """Source text has no lesson suffix when lesson_number is None."""
         mock_store.search.return_value = make_results(
             documents=["General content."],
-            metadata=[{"course_title": "General Course", "lesson_number": None}]
+            metadata=[{"course_title": "General Course", "lesson_number": None}],
         )
 
         tool.execute(query="general stuff")
@@ -89,7 +90,7 @@ class TestExecuteSuccess:
             metadata=[
                 {"course_title": "Course X", "lesson_number": 1},
                 {"course_title": "Course X", "lesson_number": 2},
-            ]
+            ],
         )
 
         result = tool.execute(query="overview")
@@ -102,6 +103,7 @@ class TestExecuteSuccess:
 # ---------------------------------------------------------------------------
 # execute() – filter forwarding
 # ---------------------------------------------------------------------------
+
 
 class TestExecuteFilters:
     def test_passes_query_only(self, tool, mock_store):
@@ -136,6 +138,7 @@ class TestExecuteFilters:
 # ---------------------------------------------------------------------------
 # execute() – empty / error paths
 # ---------------------------------------------------------------------------
+
 
 class TestExecuteEmptyAndErrors:
     def test_empty_results_returns_no_content_message(self, tool, mock_store):
@@ -200,11 +203,12 @@ class TestExecuteEmptyAndErrors:
 # ToolManager integration
 # ---------------------------------------------------------------------------
 
+
 class TestToolManager:
     def test_register_and_execute_search_tool(self, mock_store):
         mock_store.search.return_value = make_results(
             documents=["Result."],
-            metadata=[{"course_title": "Course A", "lesson_number": 1}]
+            metadata=[{"course_title": "Course A", "lesson_number": 1}],
         )
 
         manager = ToolManager()
@@ -219,7 +223,7 @@ class TestToolManager:
     def test_get_last_sources_via_manager(self, mock_store):
         mock_store.search.return_value = make_results(
             documents=["Text."],
-            metadata=[{"course_title": "Course B", "lesson_number": 2}]
+            metadata=[{"course_title": "Course B", "lesson_number": 2}],
         )
 
         manager = ToolManager()
@@ -235,7 +239,7 @@ class TestToolManager:
     def test_reset_sources_clears_last_sources(self, mock_store):
         mock_store.search.return_value = make_results(
             documents=["Text."],
-            metadata=[{"course_title": "Course B", "lesson_number": 2}]
+            metadata=[{"course_title": "Course B", "lesson_number": 2}],
         )
 
         manager = ToolManager()
